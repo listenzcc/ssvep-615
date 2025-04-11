@@ -54,7 +54,9 @@ class FrameRateCounter:
         time_deltas = [self.timestamps[i] - self.timestamps[i - 1]
                        for i in range(1, len(self.timestamps))]
         avg_delta = sum(time_deltas) / len(time_deltas)
-        return 1.0 / avg_delta if avg_delta > 0 else 0.0
+        rate = 1.0 / avg_delta if avg_delta > 0 else 0.0
+        # print(rate)
+        return rate
 
 
 # %% ---- 2025-04-11 ------------------------

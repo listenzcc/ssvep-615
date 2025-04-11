@@ -51,10 +51,18 @@ def _on_key_pressed(event):
     return
 
 
+draw_cues_only_once = True
+
+
 def _on_time_tick():
     my_screen.frc.update()
     my_screen.update_clock()
-    my_screen.draw_cues()
+
+    global draw_cues_only_once
+    if draw_cues_only_once:
+        my_screen.draw_cues()
+        draw_cues_only_once = False
+
     my_screen.draw_blinks()
     my_screen.put_image()
     return

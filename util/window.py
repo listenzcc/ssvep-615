@@ -18,15 +18,17 @@ Functions:
 
 # %% ---- 2025-04-11 ------------------------
 # Requirements and constants
+from PIL import Image
+from PIL.ImageQt import ImageQt
 import time
 from datetime import datetime
 from threading import Thread, RLock
 import sys
-from PIL import Image, ImageDraw, ImageFont
-from PIL.ImageQt import ImageQt
+import cv2
+import numpy as np
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen
+from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen, QImage
 from PyQt6.QtWidgets import QMainWindow, QApplication, QLabel
 
 from .logging import logger
@@ -34,9 +36,6 @@ from .frame_rate_counter import FrameRateCounter
 
 # Initialize the QApplication in the first place.
 qapp = QApplication(sys.argv)
-
-small_font = ImageFont.truetype("arial.ttf", 24)
-large_font = ImageFont.truetype("arial.ttf", 64)
 
 # %% ---- 2025-04-11 ------------------------
 # Function and class
@@ -103,9 +102,9 @@ class BasicScreen:
 
 
 class ImageScreen(BasicScreen):
-    background_color = (0, 0, 0, 0)  # RGBA
+    background_color = (0, 0, 0, 100)  # RGBA
 
-    def __init__(self, image: Image = None) -> None:
+    def __init__(self, image: np.ndarray = None) -> None:
         super().__init__()
         self.lock = RLock()
         self.frc = FrameRateCounter(max_samples=100)
@@ -114,19 +113,28 @@ class ImageScreen(BasicScreen):
         logger.info('ImageQtWindow initialized.')
         pass
 
-    def put_image(self, image: Image = None):
+    def put_image(self, image: np.ndarray = None):
         '''
         Put the image to the pixmap_label.
         '''
-        if image:
+        if image is not None:
             self.image = image
         with self.lock:
-            image_qt = ImageQt(self.image)
-        self.pixmap = QPixmap.fromImage(image_qt)
-        self.pixmap_label.setPixmap(self.pixmap)
+            # Convert BGRA to RGBA
+            image_rgba = cv2.cvtColor(self.image, cv2.COLOR_BGRA2RGBA)
+            height, width, channel = image_rgba.shape
+            bytes_per_line = channel * width
+
+            # Create QImage with correct format
+            q_image = QPixmap.fromImage(
+                QImage(image_rgba.data, width, height,
+                       bytes_per_line, QImage.Format.Format_RGBA8888)
+            )
+
+        self.pixmap_label.setPixmap(q_image)
         return
 
-    def get_image(self) -> Image:
+    def get_image(self) -> np.ndarray:
         '''
         Get the image from the pixmap_label.
         '''
@@ -140,33 +148,35 @@ class ImageScreen(BasicScreen):
         clock = datetime.now().isoformat()
         rate = self.frc.get_frame_rate()
         text = ' | '.join([clock, f'FPS: {rate:.2f}'])
-        text_bbox = self.image_draw.textbbox((0, 0), text, font=small_font)
-        text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1]
         with self.lock:
-            self.image_draw.rectangle(
-                (self.image.width - text_width - 10, 0, self.image.width, text_height + 10), fill=self.background_color)
-            self.image_draw.text((self.image.width - 10, 0), text=text,
-                                 fill=(255, 255, 255), font=small_font, anchor='rt')
-        pass
+            # Clear the text area by filling it with the background color
+            text_area_width = 400
+            text_area_height = 30
+            cv2.rectangle(self.image,
+                          (self.image.shape[1] - text_area_width, 0),
+                          (self.image.shape[1], text_area_height),
+                          self.background_color,
+                          thickness=cv2.FILLED)
 
-    def mk_image(self, image: Image = None, text: str = 'Default image.') -> Image:
+            # Draw the new text
+            cv2.putText(self.image, text, (self.image.shape[1] - text_area_width + 5, 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255, 255), 1, cv2.LINE_AA)
+        return
+
+    def mk_image(self, image: np.ndarray = None, text: str = 'Powered by Listenzcc.') -> np.ndarray:
         '''
         Create an image with the given text and font size.
         '''
         if image is None:
-            self.image = Image.new(
-                'RGBA', (self.width, self.height), self.background_color)
-            self.image_draw = ImageDraw.Draw(self.image)
+            self.image = 100 + \
+                np.zeros((self.height, self.width, 4), dtype=np.uint8)
         else:
-            image = image.resize((self.width, self.height))
-            self.image = image
+            self.image = cv2.resize(image, (self.width, self.height))
 
         # Draw the text
         if text:
-            font = small_font  # large_font
-            self.image_draw.text((0, 0), text=text,
-                                 fill=(255, 255, 255), font=font)
+            cv2.putText(self.image, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        1, (255, 255, 255, 255), 2, cv2.LINE_AA)
 
         return self.image
 
