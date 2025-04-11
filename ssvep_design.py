@@ -81,7 +81,7 @@ class SSVEPImageScreen(ImageScreen):
                                   (x + w, y + h), (0, 0, 255, 255), -1)
                 else:
                     cv2.rectangle(self.image, (x, y),
-                                  (x + w, y + h), (0, 0, 0, 255), -1)
+                                  (x + w, y + h), (0, 0, 0, 200), -1)
 
                 cv2.putText(self.image, text, (x + 5, y + 20), cv2.FONT_HERSHEY_SIMPLEX,
                             0.5, (255, 255, 255, 255), 1, cv2.LINE_AA)
