@@ -1,5 +1,6 @@
 import time
 import glfw
+import noise
 import freetype
 import numpy as np
 
@@ -176,7 +177,7 @@ class TextRenderer:
 
         # 禁用状态
         glDisable(GL_TEXTURE_2D)
-        glDisable(GL_BLEND)
+        # glDisable(GL_BLEND)
 
 
 def sin(t):
@@ -233,11 +234,13 @@ def main():
 
     # 创建文本渲染器
     text_renderer = TextRenderer()
-    text_renderer.load_font("./font/msyh.ttc", 24)
+    text_renderer.load_font("./font/msyh.ttc", 36)
 
     # 设置混合模式以实现透明度
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+    random_triangles = np.random.random((100, 3, 2))
 
     # 主渲染循环
     while not glfw.window_should_close(window):
@@ -263,14 +266,45 @@ def main():
         # Range is [-1, -1] -> [1, 1]
         t = time.time()
         d = t * 0.1
-        glBegin(GL_TRIANGLES)
-        glColor4f(1.0, 0.0, 0.0, 0.5)  # 红色，50%透明度
-        glVertex2f(cos(d), sin(d))
-        glColor4f(0.0, 1.0, 0.0, 0.5)  # 绿色，50%透明度
-        glVertex2f(cos(d+1/3), sin(d+1/3))
-        glColor4f(0.0, 0.0, 1.0, 0.5)  # 蓝色，50%透明度
-        glVertex2f(cos(d+2/3), sin(d+2/3))
-        glEnd()
+        if False:
+            glBegin(GL_TRIANGLES)
+            glColor4f(1.0, 0.0, 0.0, 0.5)  # 红色，50%透明度
+            glVertex2f(cos(d), sin(d))
+            glColor4f(0.0, 1.0, 0.0, 0.5)  # 绿色，50%透明度
+            glVertex2f(cos(d+1/3), sin(d+1/3))
+            glColor4f(0.0, 0.0, 1.0, 0.5)  # 蓝色，50%透明度
+            glVertex2f(cos(d+2/3), sin(d+2/3))
+            glEnd()
+
+        # Draw 100 random triangles with perlin noise
+        d = t * 0.1  # Add a time-based offset for movement
+        d %= 100
+        for i, rnd in enumerate(random_triangles):
+            x1, y1 = noise.pnoise2(
+                rnd[0][0]*10, d), noise.pnoise2(rnd[0][1]*40, d)
+            x2, y2 = noise.pnoise2(
+                rnd[1][0]*20, d), noise.pnoise2(rnd[1][1]*50, d)
+            x3, y3 = noise.pnoise2(
+                rnd[2][0]*30, d), noise.pnoise2(rnd[2][1]*60, d)
+
+            glBegin(GL_TRIANGLES)
+            if i % 10 == 0:
+                freq = 43 * i / len(random_triangles)
+                c = cos(t*freq+rnd[0][0]) * 0.5 + 0.5
+                glColor4f(c, c, c, 0.5)
+                glVertex2f(x1, y1)
+                glColor4f(c, c, c, 0.5)
+                glVertex2f(x2, y2)
+                glColor4f(c, c, c, 0.5)
+                glVertex2f(x3, y3)
+            else:
+                glColor4f(1.0, 0.0, 0.0, 0.5)  # 红色，50%透明度
+                glVertex2f(x1, y1)
+                glColor4f(0.0, 1.0, 0.0, 0.5)  # 绿色，50%透明度
+                glVertex2f(x2, y2)
+                glColor4f(0.0, 0.0, 1.0, 0.5)  # 蓝色，50%透明度
+                glVertex2f(x3, y3)
+            glEnd()
 
         glfw.swap_buffers(window)
         glfw.poll_events()
