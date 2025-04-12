@@ -32,7 +32,7 @@ from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen, QImage
 from PyQt6.QtWidgets import QMainWindow, QApplication, QLabel
 
 from .logging import logger
-from .frame_rate_counter import FrameRateCounter
+from .fps_ruler import FPSRuler
 
 # Initialize the QApplication in the first place.
 qapp = QApplication(sys.argv)
@@ -107,7 +107,7 @@ class ImageScreen(BasicScreen):
     def __init__(self, image: np.ndarray = None) -> None:
         super().__init__()
         self.lock = RLock()
-        self.frc = FrameRateCounter(max_samples=100)
+        self.frc = FPSRuler(max_samples=100)
         self.mk_image(image)
         self.put_image()
         logger.info('ImageQtWindow initialized.')
@@ -146,7 +146,7 @@ class ImageScreen(BasicScreen):
         Draw the clock and FPS on the NE corner of the screen.
         '''
         clock = datetime.now().isoformat()
-        rate = self.frc.get_frame_rate()
+        rate = self.frc.get_fps()
         text = ' | '.join([clock, f'FPS: {rate:.2f}'])
         with self.lock:
             # Clear the text area by filling it with the background color
