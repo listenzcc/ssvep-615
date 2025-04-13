@@ -256,6 +256,9 @@ class GLFWWindow:
         glfw.window_hint(glfw.SAMPLES, 4)  # 抗锯齿
         glfw.window_hint(glfw.FLOATING, glfw.TRUE)  # 置顶窗口
 
+        # 设置点击穿透
+        glfw.window_hint(glfw.MOUSE_PASSTHROUGH, glfw.TRUE)
+
         # Leave out 1 pixel to prevent from crashing. But don't know why.
         window = glfw.create_window(
             width-1, height-1, 'OpenGL Wnd.', None, None)
