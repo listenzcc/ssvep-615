@@ -249,7 +249,7 @@ def main():
         glClear(GL_COLOR_BUFFER_BIT)
 
         text_renderer.render_text(
-            "OpenGL is Rendering", 100, 100, 0.8, (0.2, 0.8, 0.5, 1.0))
+            f"OpenGL is Rendering at {width} x {height} ({refresh_rate} Hz)", 100, 100, 0.8, (0.2, 0.8, 0.5, 1.0))
 
         text_renderer.render_text(
             "中文字符", 0, 300, 0.8, (0.2, 0.8, 0.5, 1.0))
