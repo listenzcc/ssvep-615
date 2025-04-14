@@ -21,6 +21,7 @@ Functions:
 import glfw
 import time
 import numpy as np
+import pandas as pd
 
 from threading import Thread
 
@@ -33,6 +34,19 @@ from ssvep_design import SSVEPLayout
 
 # %% ---- 2025-04-13 ------------------------
 # Function and class
+class DataBuffer:
+    data = []
+
+    def collect(self, i, t, c):
+        self.data.append((i, t, c))
+
+    def save(self):
+        df = pd.DataFrame(self.data, columns=['i', 't', 'c'])
+        df.to_excel('a.xlsx')
+
+
+db = DataBuffer()
+
 
 class StopWatch:
     running: bool = False
@@ -71,6 +85,7 @@ def key_callback(window, key, scancode, action, mods):
     '''Keyboard event callback'''
     if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
         print("ESC is pressed, bye bye.")
+        # db.save()
         glfw.set_window_should_close(window, True)
         return
     elif action == glfw.PRESS:
@@ -107,7 +122,7 @@ def main_render():
     n = len(SSVEPLayout.cues)
     this_i = int(t / total) % n + 1
 
-    t %= total
+    t_in_trial = t % total
 
     for i, patch in SSVEPLayout.blinks.items():
         freq, x, y, w, h = patch
@@ -115,10 +130,13 @@ def main_render():
         y += 0.05
 
         if sw.running:
-            if t > SSVEPLayout.cue_length:
+            if t_in_trial > SSVEPLayout.cue_length:
                 # Draw blink
                 c = cos(t*freq) * 0.5 + 0.5
                 wnd.draw_rect(x, y, w, h, (c, c, c, 1.0))
+                # if i == 1:
+                #     db.collect(this_i, t, c)
+                #     print(this_i, t, c)
             else:
                 # Draw green
                 wnd.draw_rect(x, y, w, h, (0.0, 1.0, 0, 1.0))
@@ -136,7 +154,7 @@ def main_render():
         x += 0.05
         y += 0.05
 
-        if i == this_i and t < SSVEPLayout.cue_length:
+        if i == this_i and t_in_trial < SSVEPLayout.cue_length:
             wnd.draw_rect(x-w*0.1, y-h*0.1, w *
                           1.2, h*1.2, (1.0, 0, 0, 1.0))
 
@@ -146,7 +164,6 @@ def main_render():
         wnd.draw_text(s, x, y, SSVEPLayout.cue_font_scale, TextAnchor.SW, 1.0)
 
     if not sw.running:
-        t = sw.peek()
         wnd.draw_text('Press s to start.', (t/10) % 1, 0.5,
                       1, TextAnchor.CENTER, color=1.0)
 
