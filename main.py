@@ -27,11 +27,38 @@ from threading import Thread
 from OpenGL.GL import *
 
 from util.glfw_opengl import GLFWWindow, TextAnchor
+from util.logging import logger
 from ssvep_design import SSVEPLayout
 
 
 # %% ---- 2025-04-13 ------------------------
 # Function and class
+
+class StopWatch:
+    running: bool = False
+    tic: float = time.time()
+
+    def start(self):
+        self.tic = time.time()
+        self.running = True
+        logger.info('Start running.')
+
+    def stop(self):
+        self.running = False
+        logger.info('Stop running.')
+
+    def toggle(self):
+        if self.running:
+            self.stop()
+        else:
+            self.start()
+
+    def peek(self):
+        return time.time() - self.tic
+
+
+sw = StopWatch()
+
 
 def performance_ruler():
     while True:
@@ -45,12 +72,23 @@ def key_callback(window, key, scancode, action, mods):
     if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
         print("ESC is pressed, bye bye.")
         glfw.set_window_should_close(window, True)
+        return
     elif action == glfw.PRESS:
         print(f"Key pressed {key}")
     elif action == glfw.RELEASE:
-        print(f"Key released {key}")
+        # print(f"Key released {key}")
+        return
     elif action == glfw.REPEAT:
-        print(f"Key repeated {key}")
+        # print(f"Key repeated {key}")
+        return
+
+    try:
+        c = chr(key)
+        if c == 'S':
+            sw.toggle()
+    except Exception as e:
+        pass
+
     return
 
 
@@ -62,12 +100,36 @@ def cos(t):
     return np.cos(t*2*np.pi)
 
 
-def main_render(t: float):
+def main_render():
+    t = sw.peek()
+
     total = SSVEPLayout.cue_length + SSVEPLayout.blink_length
     n = len(SSVEPLayout.cues)
     this_i = int(t / total) % n + 1
 
     t %= total
+
+    for i, patch in SSVEPLayout.blinks.items():
+        freq, x, y, w, h = patch
+        x += 0.05
+        y += 0.05
+
+        if sw.running:
+            if t > SSVEPLayout.cue_length:
+                # Draw blink
+                c = cos(t*freq) * 0.5 + 0.5
+                wnd.draw_rect(x, y, w, h, (c, c, c, 1.0))
+            else:
+                # Draw green
+                wnd.draw_rect(x, y, w, h, (0.0, 1.0, 0, 1.0))
+        else:
+            # Draw yellow
+            wnd.draw_rect(x, y, w, h, (1.0, 1.0, 0.0, 1.0))
+            c = cos(t+x+y) * 0.5 + 0.5
+            wnd.draw_rect(x, y, w, h, (c, c, c, 1.0))
+
+        wnd.draw_text(f'{freq}', x, y,
+                      SSVEPLayout.blink_font_scale, TextAnchor.SW, 1.0)
 
     for i, cue in SSVEPLayout.cues.items():
         s, x, y, w, h = cue
@@ -83,16 +145,10 @@ def main_render(t: float):
 
         wnd.draw_text(s, x, y, SSVEPLayout.cue_font_scale, TextAnchor.SW, 1.0)
 
-    for i, patch in SSVEPLayout.blinks.items():
-        freq, x, y, w, h = patch
-        x += 0.05
-        y += 0.05
-
-        if t > SSVEPLayout.cue_length:
-            c = cos(t*freq) * 0.5 + 0.5
-            wnd.draw_rect(x, y, w, h, (c, c, c, 1.0))
-        else:
-            wnd.draw_rect(x, y, w, h, (1.0, 1.0, 0, 1.0))
+    if not sw.running:
+        t = sw.peek()
+        wnd.draw_text('Press s to start.', (t/10) % 1, 0.5,
+                      1, TextAnchor.CENTER, color=1.0)
 
     return
 

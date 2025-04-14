@@ -38,7 +38,11 @@ from .fps_ruler import FPSRuler
 class TextAnchor(Enum):
     '''
     NW ----- N ------ NE
+    --------------------
+    --------------------
     W ---- CENTER ---- E
+    --------------------
+    --------------------
     SW ----- S ------ SE
     '''
     CENTER = 0
@@ -214,12 +218,19 @@ class TextRenderer:
 
 
 class GLFWWindow:
+    # Monitor params (Read-only)
     width: int
     height: int
     refresh_rate: int
 
+    # Window
     window = None
 
+    # Options
+    is_focused = True
+    click_through = False
+
+    # Addons
     text_renderer = TextRenderer()
     fps = FPSRuler()
 
@@ -230,6 +241,27 @@ class GLFWWindow:
         self.text_renderer.load_font(font_path, font_size)
         self.font_path = font_path
         self.font_size = font_size
+        return
+
+    def on_focus_change(self, window, focused):
+        self.is_focused = focused
+        logger.info('Focus changed: {}'.format(
+            'Got focus' if focused else 'Lost focus'))
+        self.update_window_attributes()
+        return
+
+    def update_window_attributes(self):
+        # 当窗口无焦点时自动启用点击穿透
+        auto_click_through = not self.is_focused
+        final_click_through = self.click_through or auto_click_through
+
+        glfw.set_window_attrib(
+            self.window,
+            glfw.MOUSE_PASSTHROUGH,
+            glfw.TRUE if final_click_through else glfw.FALSE
+        )
+
+        return
 
     def render_loop(self, key_callback: callable, main_render: callable):
         if not glfw.init():
@@ -257,7 +289,7 @@ class GLFWWindow:
         glfw.window_hint(glfw.FLOATING, glfw.TRUE)  # 置顶窗口
 
         # 设置点击穿透
-        glfw.window_hint(glfw.MOUSE_PASSTHROUGH, glfw.TRUE)
+        # glfw.window_hint(glfw.MOUSE_PASSTHROUGH, glfw.TRUE)
 
         # Leave out 1 pixel to prevent from crashing. But don't know why.
         window = glfw.create_window(
@@ -267,9 +299,13 @@ class GLFWWindow:
             glfw.terminate()
             raise RuntimeError(f'Can not create window: {glfw.get_error()}')
 
-        # Make context and set key callback.
+        self.window = window
+
+        # Make context and set callbacks.
         glfw.make_context_current(window)
+        glfw.set_window_focus_callback(window, self.on_focus_change)
         glfw.set_key_callback(window, key_callback)
+        # self.update_window_attributes()
 
         # 设置混合模式以实现透明度
         glEnable(GL_BLEND)
@@ -285,10 +321,10 @@ class GLFWWindow:
             scale = 0.5
             color = (1.0, 1.0, 1.0, 1.0)
 
-            text = f"OpenGL is Rendering at {width} x {height} ({refresh_rate} Hz)"
+            text = f"GLFW ({glfw.__version__}) is Rendering at {width} x {height} ({refresh_rate} Hz)"
             self.draw_text(text, 0, 1.0, scale, TextAnchor.NW, color)
 
-            text = '中文字符测试'
+            text = '窗口获得焦点' if self.is_focused else '窗口失去焦点'
             self.draw_text(text, 0.5, 1.0, scale, TextAnchor.N, color)
 
             text = ' | '.join([
@@ -297,11 +333,14 @@ class GLFWWindow:
             ])
             self.draw_text(text, 1.0, 1.0, scale, TextAnchor.NE, color)
 
-            t = time.time()
-            main_render(t)
+            main_render()
 
             glfw.swap_buffers(window)
-            glfw.poll_events()
+            try:
+                glfw.poll_events()
+            except Exception as e:
+                print(e)
+                raise e
             fps.update()
 
         glfw.terminate()
@@ -309,7 +348,7 @@ class GLFWWindow:
 
     def draw_rect(self, x, y, w, h, color=(1, 1, 1, 1)):
         '''
-        Suppose the x, y is the NW corner of the rectangle.
+        Suppose the x, y is the SW corner of the rectangle.
 
         :param x, y, w, h: (0, 1) position and (0, 1) scale.
         '''
