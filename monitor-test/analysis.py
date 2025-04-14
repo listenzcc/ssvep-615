@@ -92,23 +92,4 @@ for file in files:
 
 # %%
 # %%
-# raws = []
-# for data_format in ['auto', 'int16', 'int32', 'float32', 'float64']:
-#     try:
-#         raw = mne.io.read_raw_cnt(input_fname='low.cnt',
-#                                  data_format=data_format,
-#                                  preload=True)
-#         raws.append(raw)
-#         print(f"成功使用 {data_format} 格式读取")
-#     except Exception as e:
-#         print(f"{data_format} 格式失败: {str(e)}")
-
-# print(raws)
-
-# for raw in raws:
-#     d = raw.get_data()
-#     ts = d[-2]
-#     times = raw.times
-#     fig=px.line(x=times, y=ts)
-#     fig.show()
 # %%

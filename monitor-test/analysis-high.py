@@ -130,9 +130,9 @@ if __name__ == "__main__":
     ts_high -= np.mean(ts_high)
     plt.plot(ts_high)
     plt.show()
-    freqs_high = np.fft.rfftfreq(len(ts_high), d=1/FPS)
-    spectrum_power_high = np.abs(np.fft.rfft(ts_high))**2
-    fig = px.line(x=freqs_high, y=spectrum_power_high,
+    freqs = np.fft.rfftfreq(len(ts_high), d=1/FPS)
+    spectrum_power = np.abs(np.fft.rfft(ts_high))**2
+    fig = px.line(x=freqs, y=spectrum_power,
                   title='Spectrum Power of 33.2 Hz.')
     fig.show()
 
