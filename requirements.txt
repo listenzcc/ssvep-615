@@ -1,0 +1,6 @@
+glfw==2.8.0
+loguru==0.7.2
+opencv_contrib_python==4.11.0.86
+opencv_python==4.10.0.84
+pytest==8.3.5
+traitlets==5.14.3
