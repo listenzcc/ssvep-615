@@ -18,12 +18,14 @@ Functions:
 
 # %% ---- 2025-04-14 ------------------------
 # Requirements and constants
-import numpy as np
 import mne
+import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.express as px
+import matplotlib.pyplot as plt
+
 from pathlib import Path
+from scipy import signal
 
 
 # %% ---- 2025-04-14 ------------------------
@@ -90,6 +92,69 @@ for file in files:
     fig.show()
 
 
+# %%
+input_1Hz = np.sin(2*np.pi*1*r1.times)
+output_1Hz = d1[-2]
+output_unknown = d2[-2]
+fs = 1000
+
+# ================= 核心算法 =================
+
+
+def estimate_transfer_function(u, y, fs):
+    """从输入u和输出y估计频率响应函数"""
+    # 使用Welch方法估计频响(抗噪声能力强)
+    f, H = signal.csd(y, u, fs=fs, nperseg=1024)  # 交叉功率谱密度
+    _, Pxx = signal.welch(u, fs=fs, nperseg=1024)  # 输入功率谱
+    H = H / Pxx  # 频响函数估计
+    return f, H
+
+
+def restore_input(y, f_est, H_est, fs):
+    """从输出y还原输入信号"""
+    # 计算输出频谱
+    y_fft = np.fft.fft(y)
+    freqs = np.fft.fftfreq(len(y), 1/fs)
+
+    # 插值得到完整频响
+    H_mag = np.interp(np.abs(freqs), f_est, np.abs(H_est), left=0, right=0)
+    H_phase = np.interp(np.abs(freqs), f_est, np.unwrap(
+        np.angle(H_est)), left=0, right=0)
+    H_full = H_mag * np.exp(1j*H_phase)
+
+    # 频域反演 (避免除以零)
+    epsilon = 1e-10
+    x_fft = y_fft / (H_full + epsilon)
+    return np.fft.ifft(x_fft).real
+
+
+# 步骤1：估计系统频响
+f_est, H_est = estimate_transfer_function(input_1Hz, output_1Hz, fs)
+
+# 步骤2：还原未知输入
+restored_input = restore_input(output_unknown, f_est, H_est, fs)
+
+# ================= 结果分析 =================
+plt.figure(figsize=(12, 8))
+
+# 1. 频响估计结果
+plt.subplot(2, 1, 1)
+plt.semilogy(f_est, np.abs(H_est))
+plt.title('Estimated Frequency Response (from 1Hz excitation)')
+plt.xlabel('Frequency (Hz)')
+plt.ylabel('Magnitude')
+plt.grid(True)
+
+# 2. 还原信号展示（因为没有真实未知输入，只显示还原结果）
+plt.subplot(2, 1, 2)
+plt.plot(r2.times[:2000], restored_input[:2000])  # 显示前2秒
+plt.title('Restored Unknown Input Signal')
+plt.xlabel('Time (s)')
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
+# %%
 # %%
 # %%
 # %%

@@ -23,17 +23,30 @@ import time
 import numpy as np
 import pandas as pd
 
+from enum import Enum
 from threading import Thread
 
 from OpenGL.GL import *
 
 from util.glfw_opengl import GLFWWindow, TextAnchor
 from util.logging import logger
+from util.parallel.parallel import Parallel
 from ssvep_design import SSVEPLayout
 
 
 # %% ---- 2025-04-13 ------------------------
 # Function and class
+address = open('parallel-address.txt').read().strip()
+parallel = Parallel()
+parallel.reset(address)
+
+
+class ParallelCode(Enum):
+    start = 100
+    stop = 101
+    unknown = 404
+
+
 class DataBuffer:
     data = []
 
@@ -50,15 +63,19 @@ db = DataBuffer()
 
 class StopWatch:
     running: bool = False
+    status: str = 'idle'
     tic: float = time.time()
 
     def start(self):
         self.tic = time.time()
         self.running = True
+        parallel.send(ParallelCode.start.value)
         logger.info('Start running.')
 
     def stop(self):
         self.running = False
+        self.status = 'idle'
+        parallel.send(ParallelCode.stop.value)
         logger.info('Stop running.')
 
     def toggle(self):
@@ -116,13 +133,21 @@ def cos(t):
 
 
 def main_render():
-    t = sw.peek()
-
     total = SSVEPLayout.cue_length + SSVEPLayout.blink_length
     n = len(SSVEPLayout.cues)
+
+    t = sw.peek()
+    t_in_trial = t % total
+
     this_i = int(t / total) % n + 1
 
-    t_in_trial = t % total
+    if t_in_trial > SSVEPLayout.cue_length:
+        sw.status = 'blink'
+    else:
+        # Cue starts.
+        if sw.status == 'blink':
+            parallel.send(int(this_i))
+        sw.status = 'cue'
 
     for i, patch in SSVEPLayout.blinks.items():
         freq, x, y, w, h = patch
@@ -130,7 +155,7 @@ def main_render():
         y += 0.05
 
         if sw.running:
-            if t_in_trial > SSVEPLayout.cue_length:
+            if sw.status == 'blink':  # t_in_trial > SSVEPLayout.cue_length:
                 # Draw blink
                 c = cos(t*freq) * 0.5 + 0.5
                 wnd.draw_rect(x, y, w, h, (c, c, c, 1.0))
@@ -154,9 +179,8 @@ def main_render():
         x += 0.05
         y += 0.05
 
-        if i == this_i and t_in_trial < SSVEPLayout.cue_length:
-            wnd.draw_rect(x-w*0.1, y-h*0.1, w *
-                          1.2, h*1.2, (1.0, 0, 0, 1.0))
+        if i == this_i and sw.status == 'cue':  # t_in_trial < SSVEPLayout.cue_length:
+            wnd.draw_rect(x-w*0.1, y-h*0.1, w * 1.2, h*1.2, (1.0, 0, 0, 1.0))
 
         c = 0.0
         wnd.draw_rect(x, y, w, h, (c, c, c, 1.0))
@@ -166,6 +190,8 @@ def main_render():
     if not sw.running:
         wnd.draw_text('Press s to start.', (t/10) % 1, 0.5,
                       1, TextAnchor.CENTER, color=1.0)
+        wnd.draw_text(
+            f'Parallel port: {parallel.address}', 1.0, 0.0, 1.0, TextAnchor.SE, 1.0)
 
     return
 
